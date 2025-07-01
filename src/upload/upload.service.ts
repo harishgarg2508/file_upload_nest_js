@@ -1,10 +1,11 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { diskStorage } from "multer";
+import { diskStorage, memoryStorage } from "multer";
 import { UploadApiResponse, v2 } from "cloudinary";
 import { filenameEditor, imageFileFilter } from "./upload.utils";
 import { UploadEntity } from "./entities/upload.entity";
+import { Readable } from "stream";
 import * as fs from 'fs/promises';
 const UPLOAD_DIR = './upload/files';
 
@@ -25,7 +26,7 @@ export class UploadService {
       throw new BadRequestException('No file uploaded');
     }
 
-    if (file.size < 50 * 1024 * 1024) {
+    if (file.size > 50 * 1024 * 1024) {
       const cloudResult = await this.handleCloudUpload(file);
       await fs.unlink(file.path);
       return { message: 'File uploaded to cloud and local file deleted', cloud: cloudResult };
@@ -34,7 +35,7 @@ export class UploadService {
     }
   }
 
-  
+
   static multerOptions() {
     return {
       storage: diskStorage({
@@ -45,11 +46,17 @@ export class UploadService {
       limits: { fileSize: 1000 * 1000 * 1 }
     };
   }
-
+  
+  static cloudOptions() {
+    return {
+      fileFilter: imageFileFilter,
+      limits: { fileSize: 1024 * 1024 * 60 }
+    };
+  }
 
 
   async handleLocalUpload(file: Express.Multer.File) {
-    if (!file|| file.size < 1 * 1024) {
+    if (!file || file.size < 1 * 1024) {
       throw new BadRequestException('file not found or size is less than 1kb');
     }
     const entity = this.uploadRepo.create({
@@ -92,6 +99,23 @@ export class UploadService {
     }
 
     throw new Error("Upload failed ");
+  }
+
+  async uploadFile(file: Express.Multer.File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = v2.uploader.upload_stream(
+        {
+          folder: "cloudImages",
+          public_id: `${Date.now()}`,
+        },
+        (error, result: UploadApiResponse | undefined) => {
+          if (error || !result) return reject(error);
+          return resolve(result.secure_url);
+        }
+      );
+
+      Readable.from(file.buffer).pipe(uploadStream);
+    });
   }
 
 }
