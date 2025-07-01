@@ -6,15 +6,9 @@ import { UploadService } from "./upload.service";
 export class UploadController {
     constructor(private readonly uploadService: UploadService) {}
 
-    @Post('multer')
+    @Post()
     @UseInterceptors(FileInterceptor('file', UploadService.multerOptions()))
-    async uploadFile(@UploadedFile() file: Express.Multer.File) {
-        return this.uploadService.handleLocalUpload(file);
-    }
-
-    @Post('cloud')
-    @UseInterceptors(FileInterceptor('image', UploadService.multerOptions()))
-    async uploadCloudinary(@UploadedFile() file: Express.Multer.File) {
-        return this.uploadService.handleCloudUpload(file);
+    async autoUpload(@UploadedFile() file: Express.Multer.File) {
+        return this.uploadService.autoUpload(file);
     }
 }
