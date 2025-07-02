@@ -60,7 +60,7 @@ export class UploadService {
       throw new BadRequestException('file not found or size is less than 1kb');
     }
     const entity = this.uploadRepo.create({
-      imageName: file.filename,
+      imageName: 'http://localhost:3000/upload/files/'+file.filename,
       URL: file.path
     });
     await this.uploadRepo.save(entity);
